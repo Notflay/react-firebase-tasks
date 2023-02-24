@@ -1,6 +1,7 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { motion } from "framer-motion";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { addTask, getTasks, updateTask } from "../../firebase/tasksController";
 import useList from "../../hooks/useList";
 
 /**
@@ -12,15 +13,28 @@ import useList from "../../hooks/useList";
 const Tasklist = ({ showSettings, setShowSettings }) => {
   const tasks = useList([]);
   const [newTask, setNewTask] = useState("");
+  const [taskList, setTaskList] = useState([]);
 
   /**
    * Añade una nueva tarea a la lista
    */
   const handleSubmit = (event) => {
-    if (newTask === "") return;
     event.preventDefault();
+    if (newTask === "") return;
+    // Vamos a añadir una nueva tarea a la base de datos
+    // Cuando se haya añadido la mostraremos dentro del estado tasklist
+    const task = { task: newTask, completed: false };
+    addTask(task)
+      .then(() => {
+        return setTaskList([...taskList, task]);
+      })
+      .finally(() => {
+        setNewTask("");
+      });
+
+    /* event.preventDefault();
     tasks.push(newTask);
-    setNewTask("");
+    setNewTask(""); */
     return true;
   };
 
@@ -44,12 +58,20 @@ const Tasklist = ({ showSettings, setShowSettings }) => {
     tasks.remove(index);
   };
 
+  const getTasksAll = () => {
+    getTasks().then((tasks) => setTaskList([...tasks]));
+  };
+
   /**
    * Cambia al estado de la tarea segun la posicion
    * @param {*} index Posicion de la tarea
    */
   const changeItem = (index) => {
-    tasks.change(index);
+    // tasks.change(index);
+    const task = taskList.find((t) => t.id === index);
+    updateTask(task).then(() => {
+      getTasksAll();
+    });
   };
 
   /**
@@ -59,6 +81,10 @@ const Tasklist = ({ showSettings, setShowSettings }) => {
   const handleInputChange = (event) => {
     setNewTask(event.target.value);
   };
+
+  useEffect(() => {
+    getTasksAll();
+  }, []);
 
   return (
     <div>
@@ -88,12 +114,12 @@ const Tasklist = ({ showSettings, setShowSettings }) => {
           Create Task
         </button>
       </form>
-      {tasks.isEmpty() ? (
+      {taskList.length < 1 ? (
         <p>La lista esta vacia</p>
       ) : (
         <div>
           <ul>
-            {tasks.value.map((task, index) => (
+            {taskList.map((task, index) => (
               <motion.li
                 initial={{ x: "100vw" }}
                 animate={{ x: 0 }}
@@ -104,7 +130,7 @@ const Tasklist = ({ showSettings, setShowSettings }) => {
                 <button
                   type="button"
                   variant="danger"
-                  onClick={() => changeItem(index)}
+                  onClick={() => changeItem(task.id)}
                 >
                   X
                 </button>
@@ -118,7 +144,7 @@ const Tasklist = ({ showSettings, setShowSettings }) => {
               </motion.li>
             ))}
           </ul>
-          <button className="btn m-5" type="button" onClick={tasks.clear}>
+          <button className="btn m-5" type="button">
             Eliminar
           </button>
           <button className="btn m-5" type="button" onClick={tasks.orden}>
